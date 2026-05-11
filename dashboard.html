@@ -1,3 +1,4 @@
+const HF_API = 'https://dharshhhhhh-cyber-api.hf.space';
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -829,25 +830,54 @@ async function analyseUser(userId, username){
 }
 
 // ── SEND EMAIL ────────────────────────────────────────────────
-function sendEmail(userId, username, email, flagId){
+async function sendEmail(userId, username, email, flagId){
   showModal(
-    `📧 Send warning to ${username}`,
-    `This will open your email client with a pre-filled warning message to <strong>${email}</strong>.`,
-    'Send email',
-    async ()=>{
-      const subject = encodeURIComponent('SafeChat — Warning Notice');
-      const body    = encodeURIComponent(
-        `Dear ${username},\n\nOur AI moderation has detected repeated harmful messages from your SafeChat account.\n\nPlease be respectful. Continued violations will result in your account being blocked.\n\nSafeChat Admin Team`
-      );
-      window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+    `📧 Sending to ${username}...`,
+    '<span class="spinner"></span>Sending email via SafeChat server...',
+    null, null
+  );
+
+  try {
+    const res = await fetch(`${HF_API}/send_email`, {
+      method : 'POST',
+      headers: {'Content-Type':'application/json'},
+      body   : JSON.stringify({
+        to_email  : email,
+        to_name   : username,
+        mail_type : 'warning'
+      })
+    });
+
+    const d = await res.json();
+    console.log('Email result:', d);
+
+    if(d.status === 'ok'){
+      // Mark sent in Supabase
       if(flagId){
         await db.from('flags').update({mail_sent:true}).eq('id',flagId);
         await loadAll();
       }
-      closeModal();
-    },
-    'btn-warn'
-  );
+
+      document.getElementById('modal-title').textContent = '✅ Email sent!';
+      document.getElementById('modal-body').innerHTML = `
+        <div style="color:var(--safe);font-size:14px;
+                    text-align:center;padding:10px">
+          Warning email successfully sent to
+          <strong>${email}</strong>
+        </div>`;
+      document.getElementById('modal-confirm').style.display = 'none';
+      setTimeout(closeModal, 2000);
+
+    } else {
+      throw new Error(d.message);
+    }
+
+  } catch(e){
+    console.error('Email error:', e);
+    document.getElementById('modal-title').textContent = '❌ Failed';
+    document.getElementById('modal-body').textContent  =
+      'Could not send email: ' + e.message;
+  }
 }
 
 // ── BLOCK USER ────────────────────────────────────────────────
@@ -863,6 +893,18 @@ function confirmBlock(userId, username){
     },
     'btn-danger'
   );
+}
+  // Send block email automatically
+if(user && user.email){
+  await fetch(`${HF_API}/send_email`,{
+    method :'POST',
+    headers:{'Content-Type':'application/json'},
+    body   : JSON.stringify({
+      to_email  : user.email,
+      to_name   : username,
+      mail_type : 'block'
+    })
+  });
 }
 
 // ── UNBLOCK USER ──────────────────────────────────────────────
