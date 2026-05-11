@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -511,6 +512,11 @@ const  SUPABASE_URL     = 'https://monrxrqxdetvfuloeymi.supabase.co';
 const  SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vbnJ4cnF4ZGV0dmZ1bG9leW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMTM5MDksImV4cCI6MjA5MjU4OTkwOX0.E4Iu1XttUlb9KE6q1mhmYVVCNyiladRm3xDjh9tsQUI';
 const  GROQ_KEY = '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';
 const HF_API = 'https://dharshhhhhh-cyber-api.hf.space';
+const EMAILJS_SERVICE       = 'service_8g3pu8j';
+const EMAILJS_TEMPLATE_WARN = 'template_orug3ud';  // ← warning template
+const EMAILJS_TEMPLATE_BLOCK= 'template_v7mb3ib'; // ← block template
+const EMAILJS_KEY           = 'wCkWUZENDGXj2NHJ8';
+emailjs.init(EMAILJS_KEY);
 
 const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_ANON);
@@ -881,6 +887,19 @@ async function sendEmail(userId, username, email, flagId){
       'Could not send email: ' + e.message;
   }
 }
+async function sendBlockEmail(email, username){
+  if(!email) return;
+  try {
+    await emailjs.send(
+      EMAILJS_SERVICE,
+      EMAILJS_TEMPLATE_BLOCK,
+      { to_email: email, to_name: username }
+    );
+    console.log('✅ Block email sent to', email);
+  } catch(e){
+    console.error('Block email failed:', e);
+  }
+}
 
 // ── BLOCK USER ────────────────────────────────────────────────
 // ── BLOCK USER ────────────────────────────────────────────────
@@ -890,28 +909,13 @@ function confirmBlock(userId, username){
 
   showModal(
     `🚫 Block ${username}?`,
-    `This will block <strong>${username}</strong>. They cannot login. Chat history preserved for audit.`,
+    `This will block <strong>${username}</strong>. They cannot login. A notification email will be sent automatically.`,
     'Block user',
     async () => {
-      // Send block email first
-      if(email){
-        try {
-          await fetch(`${HF_API}/send_email`, {
-            method : 'POST',
-            headers: {'Content-Type':'application/json'},
-            body   : JSON.stringify({
-              to_email  : email,
-              to_name   : username,
-              mail_type : 'block'
-            })
-          });
-          console.log('✅ Block email sent');
-        } catch(e){
-          console.log('⚠️ Block email failed:', e);
-        }
-      }
+      // Send block email automatically
+      await sendBlockEmail(email, username);
 
-      // Block user in Supabase
+      // Block in Supabase
       await db.from('users')
         .update({is_blocked: true})
         .eq('id', userId);
