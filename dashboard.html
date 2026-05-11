@@ -922,18 +922,7 @@ function confirmBlock(userId, username){
     'btn-danger'
   );
 }
-  // Send block email automatically
-if(user && user.email){
-  await fetch(`${HF_API}/send_email`,{
-    method :'POST',
-    headers:{'Content-Type':'application/json'},
-    body   : JSON.stringify({
-      to_email  : user.email,
-      to_name   : username,
-      mail_type : 'block'
-    })
-  });
-}
+  
 
 // ── UNBLOCK USER ──────────────────────────────────────────────
 async function unblockUser(userId, username){
