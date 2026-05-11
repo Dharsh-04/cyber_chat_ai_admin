@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SafeChat Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#07090F;
+    --surface:#0F1320;
+    --surface2:#161C2E;
+    --accent:#4F8EF7;
+    --accent2:#7B6EF6;
+    --danger:#F7506A;
+    --warn:#F7A94F;
+    --safe:#4FF7A0;
+    --text:#E8ECF8;
+    --muted:#5A6380;
+    --border:#1E2640;
+  }
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'DM Sans',sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+
+  /* Animated grid background */
+  body::before{
+    content:'';
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size:48px 48px;
+    opacity:0.4;
+    pointer-events:none;
+  }
+
+  /* Glow orbs */
+  .orb{
+    position:fixed;
+    border-radius:50%;
+    filter:blur(120px);
+    opacity:0.12;
+    pointer-events:none;
+    animation:drift 12s ease-in-out infinite alternate;
+  }
+  .orb1{width:500px;height:500px;background:var(--accent);top:-100px;left:-100px;animation-delay:0s}
+  .orb2{width:400px;height:400px;background:var(--accent2);bottom:-80px;right:-80px;animation-delay:-6s}
+  @keyframes drift{from{transform:translate(0,0)}to{transform:translate(40px,30px)}}
+
+  .login-wrap{
+    position:relative;
+    width:100%;
+    max-width:420px;
+    padding:0 24px;
+    animation:fadeUp .6s ease both;
+  }
+  @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+
+  .logo-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:40px;
+    justify-content:center;
+  }
+  .logo-icon{
+    width:48px;height:48px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-radius:14px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;
+  }
+  .logo-text{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px}
+  .logo-text span{color:var(--accent)}
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:36px 32px;
+  }
+  .card-title{
+    font-family:'Syne',sans-serif;
+    font-size:24px;font-weight:700;
+    margin-bottom:6px;
+  }
+  .card-sub{color:var(--muted);font-size:14px;margin-bottom:32px}
+
+  .field{margin-bottom:18px}
+  .field label{
+    display:block;font-size:12px;
+    font-weight:500;color:var(--muted);
+    text-transform:uppercase;letter-spacing:0.8px;
+    margin-bottom:8px;
+  }
+  .field input{
+    width:100%;
+    background:var(--surface2);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:13px 16px;
+    color:var(--text);
+    font-family:'DM Sans',sans-serif;
+    font-size:15px;
+    outline:none;
+    transition:border-color .2s,box-shadow .2s;
+  }
+  .field input:focus{
+    border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(79,142,247,.12);
+  }
+  .field input::placeholder{color:var(--muted)}
+
+  .btn{
+    width:100%;
+    padding:14px;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border:none;
+    border-radius:12px;
+    color:#fff;
+    font-family:'Syne',sans-serif;
+    font-size:15px;font-weight:700;
+    cursor:pointer;
+    margin-top:8px;
+    transition:opacity .2s,transform .1s;
+    letter-spacing:0.3px;
+  }
+  .btn:hover{opacity:.9}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  .err{
+    color:var(--danger);
+    font-size:13px;
+    text-align:center;
+    margin-top:14px;
+    min-height:20px;
+    display:none;
+  }
+  .err.show{display:block}
+
+  .badge{
+    display:flex;align-items:center;gap:8px;
+    margin-top:28px;padding:12px 16px;
+    background:rgba(79,142,247,.08);
+    border:1px solid rgba(79,142,247,.2);
+    border-radius:10px;
+    font-size:13px;color:var(--muted);
+  }
+  .badge-dot{width:7px;height:7px;border-radius:50%;background:var(--safe);
+    box-shadow:0 0 6px var(--safe);animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<div class="login-wrap">
+  <div class="logo-row">
+    <div class="logo-icon">🛡️</div>
+    <div class="logo-text">Safe<span>Chat</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Admin portal</div>
+    <div class="card-sub">Sign in to access the moderation dashboard</div>
+
+    <div class="field">
+      <label>Username</label>
+      <input id="uname" type="text" placeholder="admin" autocomplete="off"/>
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="pass" type="password" placeholder="••••••••••••"/>
+    </div>
+
+    <button class="btn" id="loginBtn" onclick="doLogin()">Sign in</button>
+    <div class="err" id="err">Invalid credentials</div>
+
+    <div class="badge">
+      <div class="badge-dot"></div>
+      AI moderation system active
+    </div>
+  </div>
+</div>
+
+<script>
+const ADMIN_USER = 'admin';
+const ADMIN_PASS = 'admin@safechat123';
+
+function doLogin(){
+  const u = document.getElementById('uname').value.trim();
+  const p = document.getElementById('pass').value.trim();
+  const err = document.getElementById('err');
+  const btn = document.getElementById('loginBtn');
+
+  err.classList.remove('show');
+
+  if(u === ADMIN_USER && p === ADMIN_PASS){
+    btn.textContent = 'Signing in...';
+    btn.disabled = true;
+    sessionStorage.setItem('admin_auth','1');
+    setTimeout(()=> window.location.href = 'dashboard.html', 600);
+  } else {
+    err.classList.add('show');
+    document.getElementById('pass').value = '';
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'Enter') doLogin();
+});
+
+// Redirect if already logged in
+if(sessionStorage.getItem('admin_auth')==='1'){
+  window.location.href = 'dashboard.html';
+}
+</script>
+</body>
+</html>

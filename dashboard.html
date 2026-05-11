@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SafeChat — Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07090F;
+  --surface:#0F1320;
+  --surface2:#161C2E;
+  --accent:#4F8EF7;
+  --accent2:#7B6EF6;
+  --danger:#F7506A;
+  --warn:#F7A94F;
+  --safe:#4FF7A0;
+  --text:#E8ECF8;
+  --muted:#5A6380;
+  --border:#1E2640;
+}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;
+  min-height:100vh;display:flex;flex-direction:column;
+}
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:48px 48px;opacity:0.25;pointer-events:none;z-index:0;
+}
+
+/* ── Topbar ── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(7,9,15,.85);
+  backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;
+  padding:0 28px;height:60px;gap:16px;
+}
+.topbar-logo{
+  display:flex;align-items:center;gap:10px;
+  font-family:'Syne',sans-serif;font-size:18px;font-weight:800;
+  letter-spacing:-0.3px;
+}
+.topbar-logo .icon{
+  width:34px;height:34px;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:16px;
+}
+.topbar-logo span{color:var(--accent)}
+.topbar-sep{flex:1}
+.live-badge{
+  display:flex;align-items:center;gap:7px;
+  font-size:12px;color:var(--safe);font-weight:500;
+}
+.live-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--safe);box-shadow:0 0 6px var(--safe);
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.logout-btn{
+  padding:7px 16px;border:1px solid var(--border);
+  background:transparent;border-radius:8px;
+  color:var(--muted);font-family:'DM Sans',sans-serif;
+  font-size:13px;cursor:pointer;transition:all .2s;
+}
+.logout-btn:hover{border-color:var(--danger);color:var(--danger)}
+#notif-bell{
+  position:relative;cursor:pointer;
+  width:36px;height:36px;display:flex;
+  align-items:center;justify-content:center;
+  border-radius:9px;border:1px solid var(--border);
+  background:var(--surface);transition:border-color .2s;
+}
+#notif-bell:hover{border-color:var(--accent)}
+#notif-count{
+  position:absolute;top:-4px;right:-4px;
+  background:var(--danger);color:#fff;
+  font-size:10px;font-weight:700;
+  min-width:16px;height:16px;border-radius:8px;
+  display:none;align-items:center;justify-content:center;
+  padding:0 4px;
+}
+#notif-count.show{display:flex}
+
+/* ── Layout ── */
+.layout{display:flex;flex:1;position:relative;z-index:1}
+
+/* ── Sidebar ── */
+.sidebar{
+  width:220px;min-height:calc(100vh - 60px);
+  border-right:1px solid var(--border);
+  padding:24px 16px;
+  position:sticky;top:60px;height:calc(100vh - 60px);
+  overflow-y:auto;
+}
+.sidebar-label{
+  font-size:10px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:1.2px;
+  padding:0 12px;margin-bottom:8px;margin-top:20px;
+}
+.sidebar-label:first-child{margin-top:0}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 12px;border-radius:10px;
+  cursor:pointer;font-size:14px;font-weight:500;
+  color:var(--muted);transition:all .15s;margin-bottom:2px;
+}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{
+  background:rgba(79,142,247,.12);
+  color:var(--accent);
+  border:1px solid rgba(79,142,247,.2);
+}
+.nav-item .icon{font-size:16px;width:20px;text-align:center}
+.nav-badge{
+  margin-left:auto;background:var(--danger);
+  color:#fff;font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:20px;
+  display:none;
+}
+.nav-badge.show{display:block}
+
+/* ── Main content ── */
+.main{flex:1;padding:28px;overflow-y:auto;max-height:calc(100vh - 60px)}
+
+/* ── Stat cards ── */
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:14px;margin-bottom:28px;
+}
+.stat-card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;padding:20px;
+  position:relative;overflow:hidden;
+  animation:fadeIn .4s ease both;
+}
+.stat-card::before{
+  content:'';position:absolute;
+  top:-30px;right:-30px;
+  width:80px;height:80px;border-radius:50%;
+  opacity:.08;
+}
+.stat-card.blue::before{background:var(--accent)}
+.stat-card.red::before{background:var(--danger)}
+.stat-card.amber::before{background:var(--warn)}
+.stat-card.green::before{background:var(--safe)}
+.stat-val{
+  font-family:'Syne',sans-serif;
+  font-size:32px;font-weight:800;
+  line-height:1;margin-bottom:6px;
+}
+.stat-card.blue .stat-val{color:var(--accent)}
+.stat-card.red .stat-val{color:var(--danger)}
+.stat-card.amber .stat-val{color:var(--warn)}
+.stat-card.green .stat-val{color:var(--safe)}
+.stat-label{font-size:12px;color:var(--muted);font-weight:500}
+
+/* ── Section title ── */
+.section-title{
+  font-family:'Syne',sans-serif;
+  font-size:16px;font-weight:700;
+  margin-bottom:16px;display:flex;
+  align-items:center;gap:10px;
+}
+.section-title .dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--accent);
+}
+
+/* ── Tab panels ── */
+.tab-panel{display:none;animation:fadeIn .3s ease both}
+.tab-panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Table ── */
+.table-wrap{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:16px;overflow:hidden;
+}
+table{width:100%;border-collapse:collapse}
+thead tr{border-bottom:1px solid var(--border)}
+thead th{
+  padding:12px 16px;font-size:11px;
+  font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.8px;
+  text-align:left;
+}
+tbody tr{
+  border-bottom:1px solid rgba(30,38,64,.6);
+  transition:background .15s;
+}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--surface2)}
+tbody td{padding:14px 16px;font-size:14px}
+.avatar{
+  width:34px;height:34px;border-radius:50%;
+  display:inline-flex;align-items:center;
+  justify-content:center;font-family:'Syne',sans-serif;
+  font-size:14px;font-weight:700;margin-right:10px;
+  vertical-align:middle;
+}
+
+/* ── Risk badge ── */
+.risk{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:20px;
+  font-size:11px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.6px;
+}
+.risk.high{background:rgba(247,80,106,.12);color:var(--danger);border:1px solid rgba(247,80,106,.25)}
+.risk.medium{background:rgba(247,169,79,.12);color:var(--warn);border:1px solid rgba(247,169,79,.25)}
+.risk.low{background:rgba(79,247,160,.1);color:var(--safe);border:1px solid rgba(79,247,160,.2)}
+.risk.clean{background:rgba(90,99,128,.12);color:var(--muted);border:1px solid var(--border)}
+
+/* ── Action buttons ── */
+.btn-sm{
+  padding:6px 14px;border-radius:8px;
+  font-size:12px;font-weight:600;
+  cursor:pointer;border:none;
+  font-family:'DM Sans',sans-serif;
+  transition:opacity .15s,transform .1s;
+}
+.btn-sm:hover{opacity:.85}
+.btn-sm:active{transform:scale(.97)}
+.btn-danger{background:rgba(247,80,106,.15);color:var(--danger);border:1px solid rgba(247,80,106,.3)}
+.btn-accent{background:rgba(79,142,247,.15);color:var(--accent);border:1px solid rgba(79,142,247,.3)}
+.btn-warn{background:rgba(247,169,79,.15);color:var(--warn);border:1px solid rgba(247,169,79,.3)}
+
+/* ── Flag card ── */
+.flag-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:18px;margin-bottom:12px;
+  animation:fadeIn .3s ease both;
+}
+.flag-card-header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.flag-msg{
+  font-size:13px;color:var(--muted);
+  font-style:italic;margin-bottom:12px;
+  padding:10px 14px;background:var(--surface2);
+  border-radius:8px;border-left:3px solid var(--border);
+  line-height:1.5;
+}
+.chip-row{display:flex;flex-wrap:wrap;gap:6px}
+.chip{
+  padding:3px 10px;border-radius:20px;
+  font-size:11px;font-weight:600;
+}
+.chip-red{background:rgba(247,80,106,.1);color:var(--danger)}
+.chip-amber{background:rgba(247,169,79,.1);color:var(--warn)}
+.chip-blue{background:rgba(79,142,247,.1);color:var(--accent)}
+.chip-gray{background:var(--surface2);color:var(--muted)}
+
+/* ── AI Analysis box ── */
+.ai-box{
+  background:rgba(79,142,247,.05);
+  border:1px solid rgba(79,142,247,.15);
+  border-radius:10px;padding:14px;
+  margin-top:12px;font-size:13px;
+  color:#b0bcd8;line-height:1.6;
+  display:none;
+}
+.ai-box.show{display:block}
+.ai-box-title{
+  font-size:11px;font-weight:600;
+  color:var(--accent);text-transform:uppercase;
+  letter-spacing:.8px;margin-bottom:8px;
+  display:flex;align-items:center;gap:6px;
+}
+
+/* ── Chart ── */
+.chart-wrap{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:24px;margin-bottom:20px;
+}
+.chart-title{
+  font-family:'Syne',sans-serif;font-size:15px;
+  font-weight:700;margin-bottom:20px;color:var(--text);
+}
+
+/* ── Alert card ── */
+.alert-card{
+  background:var(--surface);
+  border:1px solid rgba(247,80,106,.3);
+  border-radius:14px;padding:18px;
+  margin-bottom:12px;
+  animation:fadeIn .3s ease both;
+}
+.alert-header{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.alert-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+
+/* ── Modal ── */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,.7);
+  backdrop-filter:blur(4px);
+  z-index:999;display:none;
+  align-items:center;justify-content:center;
+}
+.modal-overlay.show{display:flex}
+.modal{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:20px;
+  padding:32px;width:100%;max-width:440px;
+  animation:fadeUp .3s ease both;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.modal-title{
+  font-family:'Syne',sans-serif;
+  font-size:20px;font-weight:700;margin-bottom:8px;
+}
+.modal-body{color:var(--muted);font-size:14px;line-height:1.6;margin-bottom:24px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end}
+.modal-cancel{
+  padding:10px 20px;border-radius:10px;
+  border:1px solid var(--border);background:transparent;
+  color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif;
+  font-size:14px;transition:all .15s;
+}
+.modal-cancel:hover{border-color:var(--text);color:var(--text)}
+.modal-confirm{
+  padding:10px 20px;border-radius:10px;border:none;
+  font-family:'Syne',sans-serif;font-size:14px;font-weight:700;
+  cursor:pointer;transition:opacity .15s;
+}
+
+/* ── Empty state ── */
+.empty{
+  text-align:center;padding:60px 20px;
+  color:var(--muted);font-size:14px;
+}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.4}
+
+/* ── Spinner ── */
+.spinner{
+  display:inline-block;width:14px;height:14px;
+  border:2px solid rgba(79,142,247,.3);
+  border-top-color:var(--accent);border-radius:50%;
+  animation:spin .7s linear infinite;vertical-align:middle;
+  margin-right:6px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Search ── */
+.search-row{display:flex;gap:12px;margin-bottom:18px;align-items:center}
+.search-input{
+  flex:1;background:var(--surface);
+  border:1px solid var(--border);border-radius:10px;
+  padding:10px 14px;color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:14px;outline:none;
+  transition:border-color .2s;
+}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <div class="icon">🛡️</div>
+    Safe<span>Chat</span> <span style="color:var(--muted);font-size:13px;font-weight:400;margin-left:4px">Admin</span>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="live-badge"><div class="live-dot"></div>Live monitoring</div>
+  <div id="notif-bell" onclick="navTo('alerts')" title="Alerts">
+    🔔<div id="notif-count"></div>
+  </div>
+  <button class="logout-btn" onclick="logout()">Sign out</button>
+</div>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-label">Overview</div>
+    <div class="nav-item active" id="nav-overview" onclick="navTo('overview')">
+      <span class="icon">📊</span>Overview
+    </div>
+
+    <div class="sidebar-label">Moderation</div>
+    <div class="nav-item" id="nav-users" onclick="navTo('users')">
+      <span class="icon">👥</span>Users
+    </div>
+    <div class="nav-item" id="nav-warnings" onclick="navTo('warnings')">
+      <span class="icon">⚠️</span>Warnings
+    </div>
+    <div class="nav-item" id="nav-alerts" onclick="navTo('alerts')">
+      <span class="icon">🚨</span>Alerts
+      <span class="nav-badge" id="alerts-badge"></span>
+    </div>
+
+    <div class="sidebar-label">Analytics</div>
+    <div class="nav-item" id="nav-risk" onclick="navTo('risk')">
+      <span class="icon">📈</span>Risk chart
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main" id="main">
+
+    <!-- ── OVERVIEW ── -->
+    <div class="tab-panel active" id="panel-overview">
+      <div class="section-title"><div class="dot"></div>Dashboard overview</div>
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card blue"><div class="stat-val" id="stat-users">—</div><div class="stat-label">Total users</div></div>
+        <div class="stat-card red"><div class="stat-val" id="stat-flags">—</div><div class="stat-label">Total flags</div></div>
+        <div class="stat-card amber"><div class="stat-val" id="stat-alerts">—</div><div class="stat-label">Active alerts</div></div>
+        <div class="stat-card green"><div class="stat-val" id="stat-safe">—</div><div class="stat-label">Safe users</div></div>
+      </div>
+
+      <div class="section-title"><div class="dot" style="background:var(--danger)"></div>Recent flags</div>
+      <div id="recent-flags"></div>
+    </div>
+
+    <!-- ── USERS ── -->
+    <div class="tab-panel" id="panel-users">
+      <div class="section-title"><div class="dot"></div>All users</div>
+      <div class="search-row">
+        <input class="search-input" id="user-search" placeholder="Search by username..." oninput="renderUsers()"/>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Email</th>
+              <th>Warnings</th>
+              <th>Risk</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── WARNINGS ── -->
+    <div class="tab-panel" id="panel-warnings">
+      <div class="section-title"><div class="dot" style="background:var(--warn)"></div>Flagged messages</div>
+      <div class="search-row">
+        <input class="search-input" id="flag-search" placeholder="Search by username or message..." oninput="renderFlags()"/>
+      </div>
+      <div id="flags-list"></div>
+    </div>
+
+    <!-- ── ALERTS ── -->
+    <div class="tab-panel" id="panel-alerts">
+      <div class="section-title"><div class="dot" style="background:var(--danger)"></div>Critical alerts</div>
+      <div id="alerts-list"></div>
+    </div>
+
+    <!-- ── RISK CHART ── -->
+    <div class="tab-panel" id="panel-risk">
+      <div class="section-title"><div class="dot" style="background:var(--accent2)"></div>Risk distribution</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="chart-wrap">
+          <div class="chart-title">Users by risk level</div>
+          <canvas id="riskBar" height="220"></canvas>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-title">Score distribution</div>
+          <canvas id="scoreDist" height="220"></canvas>
+        </div>
+      </div>
+      <div class="chart-wrap" style="margin-top:20px">
+        <div class="chart-title">Flags over time</div>
+        <canvas id="timelineChart" height="120"></canvas>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-confirm" id="modal-confirm"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── AUTH GUARD ─────────────────────────────────────────────────
+if(sessionStorage.getItem('admin_auth') !== '1'){
+  window.location.href = 'index.html';
+}
+
+// ── SUPABASE CONFIG — replace with your values ────────────────
+const  SUPABASE_URL     = 'https://monrxrqxdetvfuloeymi.supabase.co';
+const  SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1vbnJ4cnF4ZGV0dmZ1bG9leW1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwMTM5MDksImV4cCI6MjA5MjU4OTkwOX0.E4Iu1XttUlb9KE6q1mhmYVVCNyiladRm3xDjh9tsQUI';
+const  GROQ_KEY = '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';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+// ── STATE ──────────────────────────────────────────────────────
+let allUsers = [];
+let allFlags = [];
+
+// ── NAVIGATION ────────────────────────────────────────────────
+function navTo(tab){
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  document.getElementById('nav-'+tab).classList.add('active');
+  if(tab==='risk') renderCharts();
+  if(tab==='alerts') markAlertsRead();
+}
+
+function logout(){
+  sessionStorage.removeItem('admin_auth');
+  window.location.href = 'index.html';
+}
+
+// ── RISK HELPERS ──────────────────────────────────────────────
+function riskLevel(wCount, maxScore){
+  if(wCount>=5 || maxScore>=0.85) return 'high';
+  if(wCount>=3 || maxScore>=0.70) return 'medium';
+  if(wCount>0) return 'low';
+  return 'clean';
+}
+function riskColor(lvl){
+  return {high:'var(--danger)',medium:'var(--warn)',low:'var(--safe)',clean:'var(--muted)'}[lvl];
+}
+function avatarColor(name){
+  const colors=['#4F8EF7','#7B6EF6','#F7506A','#F7A94F','#4FF7A0','#F76BBA'];
+  let h=0; for(let c of name) h=(h*31+c.charCodeAt(0))&0xFFFFFF;
+  return colors[Math.abs(h)%colors.length];
+}
+
+// ── LOAD DATA ─────────────────────────────────────────────────
+async function loadAll(){
+  const [uRes, fRes] = await Promise.all([
+    db.from('users').select('*').order('created_at',{ascending:false}),
+    db.from('flags').select('*').order('created_at',{ascending:false})
+  ]);
+  allUsers = uRes.data || [];
+  allFlags = fRes.data || [];
+  updateStats();
+  renderUsers();
+  renderFlags();
+  renderAlerts();
+  renderRecent();
+  updateNotifBadge();
+}
+
+// ── STATS ─────────────────────────────────────────────────────
+function updateStats(){
+  document.getElementById('stat-users').textContent = allUsers.length;
+  document.getElementById('stat-flags').textContent = allFlags.length;
+  const alertCount = new Set(
+    allFlags.filter(f=>(f.warning_count||0)>=4 && !f.notified).map(f=>f.user_id)
+  ).size;
+  document.getElementById('stat-alerts').textContent = alertCount;
+  const flaggedIds = new Set(allFlags.map(f=>f.user_id));
+  document.getElementById('stat-safe').textContent =
+    allUsers.filter(u=>!flaggedIds.has(u.id)).length;
+}
+
+// ── NOTIFICATION BADGE ────────────────────────────────────────
+function updateNotifBadge(){
+  const count = allFlags.filter(f=>(f.warning_count||0)>=4 && !f.notified).length;
+  const el = document.getElementById('notif-count');
+  const badge = document.getElementById('alerts-badge');
+  if(count>0){
+    el.textContent=count; el.classList.add('show');
+    badge.textContent=count; badge.classList.add('show');
+  } else {
+    el.classList.remove('show');
+    badge.classList.remove('show');
+  }
+}
+
+async function markAlertsRead(){
+  const unread = allFlags.filter(f=>(f.warning_count||0)>=4 && !f.notified);
+  for(const f of unread){
+    await db.from('flags').update({notified:true}).eq('id',f.id);
+  }
+  await loadAll();
+}
+
+// ── RECENT FLAGS (overview) ───────────────────────────────────
+function renderRecent(){
+  const el = document.getElementById('recent-flags');
+  const recent = allFlags.slice(0,5);
+  if(!recent.length){ el.innerHTML='<div class="empty"><div class="empty-icon">✅</div>No flags yet</div>'; return; }
+  el.innerHTML = recent.map(f => flagCardHTML(f, false)).join('');
+}
+
+// ── USERS TABLE ───────────────────────────────────────────────
+function renderUsers(){
+  const q = (document.getElementById('user-search').value||'').toLowerCase();
+  const tbody = document.getElementById('users-tbody');
+  let users = allUsers.filter(u=> !q || u.username.toLowerCase().includes(q));
+
+  if(!users.length){
+    tbody.innerHTML=`<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--muted)">No users found</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = users.map(u=>{
+    const userFlags = allFlags.filter(f=>f.user_id===u.id);
+    const maxScore  = userFlags.length
+      ? Math.max(...userFlags.map(f=>f.bully_score||0))
+      : 0;
+    const lvl  = riskLevel(u.warning_count||0, maxScore);
+    const col  = avatarColor(u.username);
+    const blocked = u.is_blocked;
+
+    return `<tr>
+      <td>
+        <span class="avatar" style="background:${col}22;color:${col}">${u.username[0].toUpperCase()}</span>
+        <strong>${u.username}</strong>
+      </td>
+      <td style="color:var(--muted);font-size:13px">${u.email||'—'}</td>
+      <td>
+        <span style="color:${riskColor(lvl)};font-weight:600">${u.warning_count||0}</span>
+      </td>
+      <td><span class="risk ${lvl}">${lvl.toUpperCase()}</span></td>
+      <td>
+        ${blocked
+          ? '<span class="risk high">BLOCKED</span>'
+          : '<span class="risk clean">ACTIVE</span>'
+        }
+      </td>
+      <td>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn-sm btn-accent" onclick="analyseUser('${u.id}','${u.username}')">
+            ✨ Analyse
+          </button>
+          ${u.email ? `<button class="btn-sm btn-warn" onclick="sendEmail('${u.id}','${u.username}','${u.email}')">📧 Email</button>` : ''}
+          ${blocked
+            ? `<button class="btn-sm btn-accent" onclick="unblockUser('${u.id}','${u.username}')">🔓 Unblock</button>`
+            : `<button class="btn-sm btn-danger" onclick="confirmBlock('${u.id}','${u.username}')">🚫 Block</button>`
+          }
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── FLAGS LIST ────────────────────────────────────────────────
+function renderFlags(){
+  const q   = (document.getElementById('flag-search').value||'').toLowerCase();
+  const el  = document.getElementById('flags-list');
+  let flags = allFlags.filter(f=>
+    !q ||
+    (f.username||'').toLowerCase().includes(q) ||
+    (f.message_text||'').toLowerCase().includes(q)
+  );
+  if(!flags.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">✅</div>No flags yet — all clear!</div>';
+    return;
+  }
+  el.innerHTML = flags.map(f=>flagCardHTML(f,true)).join('');
+}
+
+function flagCardHTML(f, showActions){
+  const score   = f.bully_score||0;
+  const count   = f.warning_count||0;
+  const lvl     = riskLevel(count, score);
+  const col     = avatarColor(f.username||'?');
+  const time    = f.created_at ? timeAgo(new Date(f.created_at)) : '';
+  const sarcasm = f.sarcasm_type && f.sarcasm_type!=='None' ? f.sarcasm_type : null;
+
+  return `<div class="flag-card" id="fc-${f.id}">
+    <div class="flag-card-header">
+      <span class="avatar" style="background:${col}22;color:${col};width:36px;height:36px;font-size:14px">
+        ${(f.username||'?')[0].toUpperCase()}
+      </span>
+      <div style="flex:1">
+        <strong>${f.username||'Unknown'}</strong>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">${time}</div>
+      </div>
+      <span class="risk ${lvl}">${lvl.toUpperCase()}</span>
+    </div>
+    <div class="flag-msg">"${f.message_text||''}"</div>
+    <div class="chip-row">
+      <span class="chip chip-red">${(score*100).toFixed(0)}% bully</span>
+      ${sarcasm ? `<span class="chip chip-amber">${sarcasm}</span>` : ''}
+      <span class="chip chip-blue">Warning #${count}</span>
+      ${f.image_mode && f.image_mode!=='NONE' ? `<span class="chip chip-gray">${f.image_mode}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── ALERTS ────────────────────────────────────────────────────
+function renderAlerts(){
+  const el = document.getElementById('alerts-list');
+  // Get latest flag per user with warning_count >= 4
+  const map = {};
+  for(const f of allFlags){
+    if((f.warning_count||0)<4) continue;
+    if(!map[f.user_id] || f.warning_count > map[f.user_id].warning_count){
+      map[f.user_id] = f;
+    }
+  }
+  const alerts = Object.values(map).sort((a,b)=>(b.warning_count||0)-(a.warning_count||0));
+
+  if(!alerts.length){
+    el.innerHTML='<div class="empty"><div class="empty-icon">✅</div>No critical alerts</div>';
+    return;
+  }
+
+  el.innerHTML = alerts.map(f=>{
+    const user    = allUsers.find(u=>u.id===f.user_id)||{};
+    const email   = user.email||'';
+    const blocked = user.is_blocked||false;
+    const count   = f.warning_count||0;
+    const score   = f.bully_score||0;
+    const col     = avatarColor(f.username||'?');
+    const showEmail = count>=4 && count<6 && !f.mail_sent;
+    const showBlock = count>=6 && !blocked;
+
+    return `<div class="alert-card">
+      <div class="alert-header">
+        <span class="avatar" style="background:${col}22;color:${col};width:36px;height:36px;font-size:14px">
+          ${(f.username||'?')[0].toUpperCase()}
+        </span>
+        <div style="flex:1">
+          <strong>${f.username||'Unknown'}</strong>
+          ${blocked ? '<span class="risk high" style="margin-left:8px">BLOCKED</span>' : ''}
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">
+            ${count} warnings · score ${(score*100).toFixed(0)}%
+          </div>
+        </div>
+        <span class="risk high">${count} ⚠️</span>
+      </div>
+
+      <div class="flag-msg">"${f.message_text||''}"</div>
+
+      ${showEmail ? `
+        <div style="background:rgba(247,169,79,.06);border:1px solid rgba(247,169,79,.2);
+             border-radius:10px;padding:12px;margin-bottom:10px;font-size:13px;color:#cbb08a">
+          ⚠️ User has been warned by AI but continues bullying. Send an email warning.
+        </div>` : ''}
+
+      ${showBlock ? `
+        <div style="background:rgba(247,80,106,.06);border:1px solid rgba(247,80,106,.2);
+             border-radius:10px;padding:12px;margin-bottom:10px;font-size:13px;color:#d9889a">
+          🚨 User continued bullying after email warning. Consider blocking.
+        </div>` : ''}
+
+      ${f.mail_sent ? `
+        <div style="font-size:12px;color:var(--safe);margin-bottom:8px">✅ Warning email sent</div>` : ''}
+
+      <div class="alert-actions">
+        ${showEmail && email ? `
+          <button class="btn-sm btn-warn" onclick="sendEmail('${f.user_id}','${f.username}','${email}','${f.id}')">
+            📧 Send warning email
+          </button>` : ''}
+        ${showBlock ? `
+          <button class="btn-sm btn-danger" onclick="confirmBlock('${f.user_id}','${f.username}')">
+            🚫 Block user
+          </button>` : ''}
+        ${blocked ? `
+          <button class="btn-sm btn-accent" onclick="unblockUser('${f.user_id}','${f.username}')">
+            🔓 Unblock user
+          </button>` : ''}
+        <button class="btn-sm btn-accent" onclick="analyseUser('${f.user_id}','${f.username}')">
+          ✨ AI analysis
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── GROQ AI USER ANALYSIS ─────────────────────────────────────
+async function analyseUser(userId, username){
+  const userFlags = allFlags.filter(f=>f.user_id===userId).slice(0,5);
+  if(!userFlags.length){ showModal('No data','No flagged messages found for this user.',null,null); return; }
+
+  const messages = userFlags.map(f=>
+    `- "${f.message_text||''}" (score: ${((f.bully_score||0)*100).toFixed(0)}%)`
+  ).join('\n');
+
+  showModal(
+    `✨ Analysing ${username}...`,
+    '<span class="spinner"></span>Loading Groq AI analysis...',
+    null, null
+  );
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${GROQ_KEY}`
+      },
+      body: JSON.stringify({
+        model:'llama-3.3-70b-versatile',
+        messages:[{
+          role:'user',
+          content:`User "${username}" sent these harmful messages:\n${messages}\n\nIn 3 sentences: describe their behaviour pattern, severity level, and recommended admin action.`
+        }],
+        max_tokens:200, temperature:0.3
+      })
+    });
+    const d    = await res.json();
+    const text = d.choices?.[0]?.message?.content || 'Analysis unavailable.';
+    document.getElementById('modal-title').textContent = `AI analysis — ${username}`;
+    document.getElementById('modal-body').innerHTML = `
+      <div style="background:rgba(79,142,247,.06);border:1px solid rgba(79,142,247,.15);
+           border-radius:10px;padding:14px;font-size:13px;line-height:1.7;color:#b0bcd8">
+        ${text}
+      </div>`;
+    document.getElementById('modal-confirm').style.display='none';
+  } catch(e){
+    document.getElementById('modal-body').textContent = 'Analysis failed: '+e.message;
+  }
+}
+
+// ── SEND EMAIL ────────────────────────────────────────────────
+function sendEmail(userId, username, email, flagId){
+  showModal(
+    `📧 Send warning to ${username}`,
+    `This will open your email client with a pre-filled warning message to <strong>${email}</strong>.`,
+    'Send email',
+    async ()=>{
+      const subject = encodeURIComponent('SafeChat — Warning Notice');
+      const body    = encodeURIComponent(
+        `Dear ${username},\n\nOur AI moderation has detected repeated harmful messages from your SafeChat account.\n\nPlease be respectful. Continued violations will result in your account being blocked.\n\nSafeChat Admin Team`
+      );
+      window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+      if(flagId){
+        await db.from('flags').update({mail_sent:true}).eq('id',flagId);
+        await loadAll();
+      }
+      closeModal();
+    },
+    'btn-warn'
+  );
+}
+
+// ── BLOCK USER ────────────────────────────────────────────────
+function confirmBlock(userId, username){
+  showModal(
+    `🚫 Block ${username}?`,
+    `This will set <strong>${username}</strong> as blocked. They will not be able to login. Their chat history is preserved for audit.`,
+    'Block user',
+    async ()=>{
+      await db.from('users').update({is_blocked:true}).eq('id',userId);
+      await loadAll();
+      closeModal();
+    },
+    'btn-danger'
+  );
+}
+
+// ── UNBLOCK USER ──────────────────────────────────────────────
+async function unblockUser(userId, username){
+  await db.from('users').update({is_blocked:false}).eq('id',userId);
+  await loadAll();
+}
+
+// ── MODAL HELPERS ─────────────────────────────────────────────
+function showModal(title, body, confirmText, onConfirm, btnClass='btn-accent'){
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').innerHTML    = body;
+  const btn = document.getElementById('modal-confirm');
+  if(confirmText){
+    btn.textContent = confirmText;
+    btn.className   = `modal-confirm ${btnClass}`;
+    btn.style.display = '';
+    btn.onclick     = onConfirm;
+  } else {
+    btn.style.display = 'none';
+  }
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal').classList.remove('show');
+}
+
+// ── CHARTS ────────────────────────────────────────────────────
+let charts = {};
+function renderCharts(){
+  // Risk bar chart
+  const riskCounts = {high:0,medium:0,low:0,clean:0};
+  for(const u of allUsers){
+    const userFlags = allFlags.filter(f=>f.user_id===u.id);
+    const maxScore  = userFlags.length ? Math.max(...userFlags.map(f=>f.bully_score||0)) : 0;
+    riskCounts[riskLevel(u.warning_count||0, maxScore)]++;
+  }
+
+  if(charts.riskBar) charts.riskBar.destroy();
+  charts.riskBar = new Chart(document.getElementById('riskBar'),{
+    type:'bar',
+    data:{
+      labels:['High','Medium','Low','Clean'],
+      datasets:[{
+        data:[riskCounts.high,riskCounts.medium,riskCounts.low,riskCounts.clean],
+        backgroundColor:['rgba(247,80,106,.7)','rgba(247,169,79,.7)','rgba(79,247,160,.6)','rgba(90,99,128,.4)'],
+        borderRadius:8,borderSkipped:false
+      }]
+    },
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(30,38,64,.6)'},ticks:{color:'#5A6380'}},
+        y:{grid:{color:'rgba(30,38,64,.6)'},ticks:{color:'#5A6380',stepSize:1}}
+      }
+    }
+  });
+
+  // Score distribution doughnut
+  const bands = [0,0,0,0];
+  for(const f of allFlags){
+    const s = f.bully_score||0;
+    if(s<0.5) bands[0]++;
+    else if(s<0.7) bands[1]++;
+    else if(s<0.85) bands[2]++;
+    else bands[3]++;
+  }
+
+  if(charts.scoreDist) charts.scoreDist.destroy();
+  charts.scoreDist = new Chart(document.getElementById('scoreDist'),{
+    type:'doughnut',
+    data:{
+      labels:['0–50%','50–70%','70–85%','85%+'],
+      datasets:[{
+        data:bands,
+        backgroundColor:['rgba(79,247,160,.7)','rgba(247,169,79,.7)','rgba(247,80,106,.7)','rgba(139,0,0,.8)'],
+        borderWidth:0,hoverOffset:6
+      }]
+    },
+    options:{
+      plugins:{legend:{labels:{color:'#5A6380',font:{size:12}}}},
+      cutout:'65%'
+    }
+  });
+
+  // Timeline — flags per day
+  const dayMap = {};
+  for(const f of allFlags){
+    if(!f.created_at) continue;
+    const day = new Date(f.created_at).toLocaleDateString('en-GB',{month:'short',day:'numeric'});
+    dayMap[day] = (dayMap[day]||0)+1;
+  }
+  const days   = Object.keys(dayMap).slice(-14);
+  const counts = days.map(d=>dayMap[d]);
+
+  if(charts.timeline) charts.timeline.destroy();
+  charts.timeline = new Chart(document.getElementById('timelineChart'),{
+    type:'line',
+    data:{
+      labels:days,
+      datasets:[{
+        label:'Flags',data:counts,
+        borderColor:'#4F8EF7',
+        backgroundColor:'rgba(79,142,247,.08)',
+        tension:.4,fill:true,pointRadius:4,
+        pointBackgroundColor:'#4F8EF7'
+      }]
+    },
+    options:{
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(30,38,64,.6)'},ticks:{color:'#5A6380'}},
+        y:{grid:{color:'rgba(30,38,64,.6)'},ticks:{color:'#5A6380',stepSize:1}}
+      }
+    }
+  });
+}
+
+// ── TIME AGO ──────────────────────────────────────────────────
+function timeAgo(date){
+  const s = Math.floor((Date.now()-date)/1000);
+  if(s<60)  return 'just now';
+  if(s<3600) return Math.floor(s/60)+'m ago';
+  if(s<86400) return Math.floor(s/3600)+'h ago';
+  return Math.floor(s/86400)+'d ago';
+}
+
+// ── REALTIME SUBSCRIPTION ─────────────────────────────────────
+db.channel('dashboard')
+  .on('postgres_changes',{event:'*',schema:'public',table:'flags'}, ()=>loadAll())
+  .on('postgres_changes',{event:'*',schema:'public',table:'users'}, ()=>loadAll())
+  .subscribe();
+
+// ── INIT ──────────────────────────────────────────────────────
+loadAll();
+</script>
+</body>
+</html>
